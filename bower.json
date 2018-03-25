@@ -1,0 +1,17 @@
+{
+  "name": "shaka-player",
+  "description": "Custom element wrapper for google's Shaka Player",
+  "main": "shaka-player.html",
+  "dependencies": {
+    "polymer": "Polymer/polymer#^2.0.0",
+    "lazy-imports": "Polymer/lazy-imports#^2.1.0"
+  },
+  "devDependencies": {
+    "iron-demo-helpers": "PolymerElements/iron-demo-helpers#^2.0.0",
+    "web-component-tester": "Polymer/web-component-tester#^6.0.0",
+    "webcomponentsjs": "webcomponents/webcomponentsjs#^1.0.0"
+  },
+  "resolutions": {
+    "polymer": "^2.0.0"
+  }
+}

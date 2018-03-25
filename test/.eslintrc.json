@@ -1,0 +1,10 @@
+{
+  "env": {
+    "mocha": true
+  },
+  "globals": {
+    "assert": true,
+    "fixture": true,
+    "flush": true
+  }
+}

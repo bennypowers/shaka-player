@@ -1,0 +1,38 @@
+{
+  "extends": ["eslint:recommended", "google"],
+  "parserOptions": {
+    "ecmaVersion": 2017
+  },
+  "env": {
+    "browser": true,
+    "es6": true
+  },
+  "plugins": [
+    "html",
+    "json",
+    "no-loops"
+  ],
+  "rules": {
+    "no-loops/no-loops": 2,
+    "arrow-parens": [2, "as-needed"],
+    "brace-style": "off",
+    "new-cap": ["error", {
+      "capIsNewExceptions": ["Polymer"],
+      "capIsNewExceptionPattern": "^(Polymer|PolymerElements)."
+      }],
+    "no-var": "off",
+    "require-jsdoc": "off",
+    "max-len": ["warn", {
+      "ignoreTemplateLiterals": true,
+      "ignoreComments": true,
+      "ignoreTrailingComments": true,
+      "ignoreRegExpLiterals": true,
+      "ignoreUrls": true,
+      "ignoreStrings": true
+      }]
+  },
+  "globals": {
+    "Polymer": true,
+    "shaka": true
+  }
+}
