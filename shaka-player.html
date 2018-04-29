@@ -16,7 +16,7 @@
         height: 100%;
         object-fit: cover;
         position: relative;
-        width: 100%;
+        min-width: 100%;
       }
 
     </style>
@@ -130,6 +130,11 @@
             type: String,
           },
 
+          /** URL to hls manifest. */
+          hlsManifest: {
+            type: String,
+          },
+
           /** The duration of the video in milliseconds. */
           duration: {
             type: Number,
@@ -212,7 +217,7 @@
 
       static get observers() {
         return [
-          'videoSourcesChanged(src, dashManifest)',
+          'videoSourcesChanged(src, dashManifest, hlsManifest)',
         ];
       }
 
@@ -294,8 +299,9 @@
         );
       }
 
-      async videoSourcesChanged(src, dashManifest) {
-        if (!src && !dashManifest) return;
+      async videoSourcesChanged(src, dashManifest, hlsManifest) {
+        const noManifests = (!dashManifest && !hlsManifest);
+        if (!src && noManifests) return;
         this.$.video.pause();
         this.$.video.src = '';
 
@@ -303,7 +309,7 @@
         if (this.player) this.player.unload();
 
         // If the source is a regular video file, load it and quit.
-        if (!dashManifest) return this.loadVideo(src);
+        if (noManifests) return this.loadVideo(src);
 
         // Import shaka player library.
         try {
@@ -312,6 +318,7 @@
         } catch (error) {
           return this.dispatchEvent(errorEvent(error));
         }
+
 
         // Install built-in polyfills to patch browser incompatibilities.
         shaka.polyfill.installAll();
@@ -326,8 +333,12 @@
         // Initialize shaka player library.
         this.initPlayer();
 
+        const support = await shaka.Player.probeSupport();
+
+        const manifestToLoad = support.manifest.mpd ? dashManifest : hlsManifest;
+
         // Load the dashManifest.
-        this.loadManifest(dashManifest);
+        this.loadManifest(manifestToLoad);
       }
 
       computePlaying(currentTime, paused, ended) {
