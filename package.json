@@ -1,0 +1,25 @@
+{
+  "name": "shaka-player",
+  "version": "1.0.0",
+  "description": "A web component to wrap Google's shaka-player",
+  "main": "index.html",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bennypowers/shaka-player.git"
+  },
+  "author": "Benny Powers",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bennypowers/shaka-player/issues"
+  },
+  "homepage": "https://github.com/bennypowers/shaka-player#readme",
+  "devDependencies": {
+    "@polymer/lit-element": "^0.5.0"
+  }
+}
