@@ -1,5 +1,5 @@
 {
-  "name": "shaka-player",
+  "name": "@power-elements/shaka-player",
   "version": "1.0.0",
   "description": "A web component to wrap Google's shaka-player",
   "main": "index.html",
