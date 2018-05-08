@@ -1,3 +1,4 @@
+import shaka from 'shaka-player';
 import {LitElement, html} from '@polymer/lit-element/lit-element.js';
 
 const bubbles = true;
@@ -215,7 +216,7 @@ class ShakaPlayer extends LitElement {
     video.src = '';
 
     // If the player is already initialized, unload it's sources.
-    if (player) player.unload();
+    if (player && player.getManifest()) player.unload();
 
     // If the source is a regular video file, load it and quit.
     if ( !dashManifest && !hlsManifest ) return;
