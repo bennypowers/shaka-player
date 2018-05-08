@@ -1,4 +1,4 @@
-import { LitElement, html } from '@polymer/lit-element/lit-element.js';
+import {LitElement, html} from '@polymer/lit-element/lit-element.js';
 
 const bubbles = true;
 const composed = true;
@@ -25,21 +25,8 @@ const customEvent = (type, detail) =>
 const errorEvent = error =>
   new ErrorEvent('error', {bubbles, composed, error});
 
-const computePlaying = ({ currentTime, paused, ended }) =>
+const computePlaying = ({currentTime, paused, ended}) =>
   currentTime > 0 && !paused && !ended;
-
-const scriptSrc = 'https://cdnjs.cloudflare.com/ajax/libs/shaka-player/2.3.4/shaka-player.compiled.js';
-
-const shakaScript = new Promise((resolve, reject) => {
-  const scripts = Array.from(document.head.querySelectorAll('script'))
-  if (scripts.some(script => script.src = scriptSrc)) resolve();
-  const script = document.createElement('script');
-  script.onload = resolve
-  script.onerror = reject
-  document.head.appendChild(script)
-  script.src = scriptSrc;
-});
-
 
 /**
  * `shaka-player`
@@ -57,7 +44,7 @@ const shakaScript = new Promise((resolve, reject) => {
  * @demo demo/index.html
  */
 class ShakaPlayer extends LitElement {
-  _render({ autoplay, controls, poster, preload }) {
+  _render({autoplay, controls, poster, preload}) {
     return html`
     <style>
       :host {
@@ -121,14 +108,14 @@ class ShakaPlayer extends LitElement {
       /** URL to dash manifest. */
       dashManifest: String,
 
-      /** URL to hls manifest. */
-      hlsManifest: String,
-
       /** The duration of the video in milliseconds. */
       duration: Number,
 
       /** Whether or not the video playback has ended */
       ended: Boolean,
+
+      /** URL to hls manifest. */
+      hlsManifest: String,
 
       /** Whether or not the video is loading */
       loading: Boolean,
@@ -138,9 +125,6 @@ class ShakaPlayer extends LitElement {
 
       /** If the video is paused. */
       paused: Boolean,
-
-      /** Handle on shaka player object. */
-      player: Object,
 
       /** Whether or not the player is playing */
       playing: Boolean,
@@ -160,9 +144,6 @@ class ShakaPlayer extends LitElement {
       /** The src URL for the video file. */
       src: String,
 
-      /** Reference to the video element. */
-      videoElement: HTMLVideoElement,
-
       /** The volume level of the video. */
       volume: Number,
     };
@@ -178,20 +159,13 @@ class ShakaPlayer extends LitElement {
     this.loading = false;
     this.muted = false;
     this.paused = true;
-    this.player = null;
-    this.playing = false
+    this.playing = false;
     this.preload = 'metadata';
     this.volume = 1;
   }
 
-  static get observers() {
-    return [
-      'videoSourcesChanged(src, dashManifest, hlsManifest)',
-    ];
-  }
-
   $(selector) {
-    return this.shadowRoot.querySelector(selector)
+    return this.shadowRoot.querySelector(selector);
   }
 
   connectedCallback() {
@@ -199,10 +173,58 @@ class ShakaPlayer extends LitElement {
     this.allowCrossSiteCredentials = this.hasAttribute('allow-cross-site-credentials') || this.allowCrossSiteCredentials;
     this.onFullscreenchange();
     document.addEventListener('fullscreenchange', this.onFullscreenchange.bind(this));
-    shakaScript
-      .then( () => this.initShaka() )
-      .catch(error => this.dispatchEvent(errorEvent(error)))
-    }
+    // Install built-in polyfills to patch browser incompatibilities.
+    shaka.polyfill.installAll();
+  }
+
+  _shouldRender(props, changedProps, prevProps) {
+    const {player, playing} = this;
+    const {dashManifest, hlsManifest, src} = changedProps || {};
+
+    const {
+      dashManifest: prevDashManifest,
+      src: prevSrc,
+      hlsManifest: prevHlsManifest,
+    } = prevProps || {};
+
+    const hasSources = !!(src || dashManifest || hlsManifest);
+
+    const hasNewSources = !!(
+      src !== prevSrc ||
+      dashManifest !== prevDashManifest ||
+      hlsManifest !== prevHlsManifest
+    );
+
+    hasNewSources && this.$('video') &&
+    this.sourcesChanged({dashManifest, hlsManifest, src, player, playing});
+
+    return (hasSources && hasNewSources);
+  }
+
+  _firstRendered() {
+    this.initPlayer(this.$('video'));
+  }
+
+  async sourcesChanged({dashManifest, hlsManifest, src, player, playing}) {
+    const video = this.$('video');
+
+    if (!video) return;
+    if (playing) this.requestTimeFrame();
+
+    video.pause();
+    video.src = '';
+
+    // If the player is already initialized, unload it's sources.
+    if (player) player.unload();
+
+    // If the source is a regular video file, load it and quit.
+    if ( !dashManifest && !hlsManifest ) return;
+
+    const support = await shaka.Player.probeSupport();
+    const manifestToLoad = support.manifest.mpd ? dashManifest : hlsManifest;
+    // Load the dashManifest.
+    this.loadManifest(manifestToLoad, player);
+  }
 
   requestTimeFrame() {
     requestAnimationFrame(
@@ -215,28 +237,37 @@ class ShakaPlayer extends LitElement {
    * @param  {DOMHighResTimeStamp} timestamp
    */
   currentTimeFrameCallback(timestamp) {
-    this.currentTime = this.videoElement.currentTime;
+    this.currentTime = this.$('video').currentTime;
     if (!this.playing) return;
     this.requestTimeFrame();
   }
 
-  /** Creates a Player instance and attaches it to the element. */
-  async initPlayer() {
-    await shakaScript
+  /**
+   * Creates a Player instance and attaches it to the element.
+   * @param  {HTMLVideoElement} videoElement Video element to initialize as Shaka Player
+   * @return {any}
+   */
+  initPlayer(videoElement) {
+    if (!videoElement) throw new Error('Trying to initialize a player without a video element.');
+
+    // Check to see if the browser supports the basic APIs Shaka needs.
+    const supported = shaka.Player.isBrowserSupported();
+    if (!supported && this.src) return this.loadVideo(this.src);
+
     const {MANIFEST} = shaka.net.NetworkingEngine.RequestType;
-    const video = this.videoElement
 
     const escapeManifestUrlsFilter = (type, request) =>
-      request.uris = type === MANIFEST
-        ? escapeUrls(request.uris)
+      request.uris =
+          type === MANIFEST ? escapeUrls(request.uris)
         : request.uris;
 
     const enableCookiesRequestFilter = (type, request) =>
       request.allowCrossSiteCredentials =
+        this.hasAttribute('allow-cross-site-credentials') ||
         this.allowCrossSiteCredentials ||
-        this.hasAttribute('allow-cross-site-credentials');
+        false;
 
-    const player = new shaka.Player(video);
+    const player = new shaka.Player(videoElement);
 
     const engine = player.getNetworkingEngine();
           engine.registerRequestFilter(enableCookiesRequestFilter);
@@ -244,18 +275,25 @@ class ShakaPlayer extends LitElement {
 
     this.player = player;
     this.dispatchEvent(customEvent('init-shaka-player'), player);
+    this.sourcesChanged(this);
   }
 
   /**
    * Load a manifest URL into shaka player.
    * @param  {String}  manifestUrl
+   * @param  {Object}  player
+   * @return {Promise}
    */
-  loadManifest(manifestUrl) {
-    if (!this.player) throw new Error('Could not load player');
-    this.player
-      .load(manifestUrl)
-      .then(detail => this.dispatchEvent(customEvent('shaka-player-loaded', detail)))
-      .catch(error => this.onPlayerLoadError(error, this.src));
+  loadManifest(manifestUrl, player = this.player) {
+    if (!player) throw new Error('Could not load player');
+    return player.load(manifestUrl)
+      .then(loaded => {
+        this.dispatchEvent(customEvent('manifest-loaded', loaded));
+        return loaded;
+      })
+      .catch(error => {
+        this.onPlayerLoadError(error, this.src);
+      });
   }
 
   /**
@@ -265,75 +303,32 @@ class ShakaPlayer extends LitElement {
    */
   loadVideo(url) {
     if (!url) return this.loading = false;
-    this.videoElement.src = url;
+    this.$('video').src = url;
   }
 
-  /** Pause the player. */
+  /**
+   * Pauses the player.
+   * @return {any}
+   */
   pause() {
-    return this.videoElement.pause();
+    const video = this.$('video');
+    return video && video.pause();
   }
 
-  /** Play the player. */
+  /**
+   * Plays the player
+   * @return {Promise}
+   */
   play() {
-    return this.videoElement.play();
-  }
-
-  async initShaka() {
-    await shakaScript
-    // Install built-in polyfills to patch browser incompatibilities.
-    shaka.polyfill.installAll();
-
-    // Check to see if the browser supports the basic APIs Shaka needs.
-    if (!shaka.Player.isBrowserSupported()) {
-      src
-        ? this.loadVideo(src)
-        : this.dispatchEvent(errorEvent(new Error('Could not load video sources')));
-      return true;
-    }
-
-    // Initialize shaka player library.
-    this.initPlayer();
-  }
-
-  async _didRender(props, changedProps, prevProps) {
-    this.videoElement = this.$('video');
-    const { src, dashManifest, hlsManifest } = changedProps
-
-    if ('playing' in changedProps) this.requestTimeFrame()
-
-    if (
-      src === prevProps.src &&
-      dashManifest === prevProps.dashManifest &&
-      hlsManifest === prevProps.hlsManifest
-    ) return;
-
-    const noManifests = (!dashManifest && !hlsManifest);
-    if (!src && noManifests) return false;
-
-    this.videoElement.pause();
-    this.videoElement.src = '';
-
-    // If the player is already initialized, unload it's sources.
-    if (this.player) this.player.unload();
-
-    // If the source is a regular video file, load it and quit.
-    if (noManifests) return
-
-
-    await shakaScript
-    const support = await shaka.Player.probeSupport();
-
-    const manifestToLoad = support.manifest.mpd ? dashManifest : hlsManifest;
-
-    // Load the dashManifest.
-    this.loadManifest(manifestToLoad);
+    const video = this.$('video');
+    return video ? video.play() : Promise.reject('No Player');
   }
 
   setPlaying() {
-    const { currentTime, ended, paused } = this.videoElement;
+    const {currentTime, ended, paused} = this.$('video') || {};
     this.paused = paused;
     this.ended = ended;
-    this.playing = computePlaying({ currentTime, ended, paused })
+    this.playing = computePlaying({currentTime, ended, paused});
   }
 
   /** EVENT LISTENERS */
@@ -343,7 +338,8 @@ class ShakaPlayer extends LitElement {
   }
 
   onDurationchange(event) {
-    this.duration = this.videoElement.duration;
+    const video = this.$('video') || {duration: 0};
+    this.duration = video.duration;
   }
 
   onError(event) {
@@ -397,7 +393,8 @@ class ShakaPlayer extends LitElement {
   }
 
   onReadyStateChange(event) {
-    this.readyState = this.videoElement.readyState;
+    const video = this.$('video') || {};
+    this.readyState = video.readyState;
   }
 
   onTimeupdate(event) {

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "A web component to wrap Google's shaka-player",
   "main": "index.html",
+  "flat": true,
   "directories": {
     "test": "test"
   },
@@ -19,7 +20,7 @@
     "url": "https://github.com/bennypowers/shaka-player/issues"
   },
   "homepage": "https://github.com/bennypowers/shaka-player#readme",
-  "devDependencies": {
+  "dependencies": {
     "@polymer/lit-element": "^0.5.0"
   }
 }
