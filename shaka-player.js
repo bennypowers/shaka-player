@@ -204,13 +204,6 @@ class ShakaPlayer extends LitElement {
     this.initPlayer(this.$('video'));
   }
 
-  async sourcesChanged({dashManifest, hlsManifest, player, playing}) {
-    const support = await shaka.Player.probeSupport();
-    const manifest = support.manifest.mpd ? dashManifest : hlsManifest;
-    this.loadManifest(manifest).catch(error => this.onPlayerLoadError(error));
-    if (playing) this.requestTimeFrame();
-  }
-
   requestTimeFrame() {
     requestAnimationFrame(
       timestamp => this.currentTimeFrameCallback(timestamp)
@@ -263,6 +256,13 @@ class ShakaPlayer extends LitElement {
     this.sourcesChanged(this);
   }
 
+  async sourcesChanged({dashManifest, hlsManifest, player, playing}) {
+    const support = await shaka.Player.probeSupport();
+    const manifest = support.manifest.mpd ? dashManifest : hlsManifest;
+    this.loadManifest(manifest);
+    if (playing) this.requestTimeFrame();
+  }
+
   /**
    * Load a manifest URL into shaka player.
    * @param  {String}  manifestUrl
@@ -271,13 +271,27 @@ class ShakaPlayer extends LitElement {
    */
   async loadManifest(manifestUrl, player = this.player) {
     if (!player) throw new Error('Could not load player');
+    const manifestLoaded = loaded => this.manifestLoaded(loaded);
+    const handleError = error => this.onPlayerLoadError(error);
 
     // If the player is already initialized, unload it's sources.
     if (player.getManifest()) player.unload();
 
-    const detail = await player.load(manifestUrl);
-    this.dispatchEvent(new CustomEvent('manifest-loaded', {bubbles, composed, detail}));
-    return detail;
+    await this.loadManifestPromise || Promise.resolve();
+
+    const loadManifestPromise = player.load(manifestUrl);
+
+    this.loadManifestPromise = loadManifestPromise;
+
+    loadManifestPromise
+      .then(manifestLoaded)
+      .catch(handleError);
+
+    return loadManifestPromise;
+  }
+
+  manifestLoaded(loaded) {
+    this.dispatchEvent(customEvent('manifest-loaded', loaded));
   }
 
   /**
