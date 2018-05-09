@@ -180,24 +180,22 @@ class ShakaPlayer extends LitElement {
 
   _shouldRender(props, changedProps, prevProps) {
     const {player, playing} = this;
-    const {dashManifest, hlsManifest, src} = changedProps || {};
+    const {dashManifest, hlsManifest, src} = changedProps;
+    const {dashManifest: prevDash, hlsManifest: prevHls, src: prevSrc} =
+      prevProps;
 
-    const {
-      dashManifest: prevDashManifest,
-      src: prevSrc,
-      hlsManifest: prevHlsManifest,
-    } = prevProps || {};
+    const hasSources = !!(dashManifest || hlsManifest || src);
+    const dashChanged = dashManifest !== prevDash;
+    const hlsChanged = hlsManifest !== prevHls;
+    const srcChanged = src !== prevSrc;
 
-    const hasSources = !!(src || dashManifest || hlsManifest);
+    // If the source is a regular video file, load it and quit.
+    if (srcChanged && !dashChanged && !hlsChanged) return this.loadVideo(src);
 
-    const hasNewSources = !!(
-      src !== prevSrc ||
-      dashManifest !== prevDashManifest ||
-      hlsManifest !== prevHlsManifest
-    );
+    const hasNewSources = !!( dashChanged || hlsChanged );
 
     hasNewSources && this.$('video') &&
-    this.sourcesChanged({dashManifest, hlsManifest, src, player, playing});
+    this.sourcesChanged({dashManifest, hlsManifest, player, playing});
 
     return (hasSources && hasNewSources);
   }
@@ -206,25 +204,11 @@ class ShakaPlayer extends LitElement {
     this.initPlayer(this.$('video'));
   }
 
-  async sourcesChanged({dashManifest, hlsManifest, src, player, playing}) {
-    const video = this.$('video');
-
-    if (!video) return;
-    if (playing) this.requestTimeFrame();
-
-    video.pause();
-    video.src = '';
-
-    // If the player is already initialized, unload it's sources.
-    if (player && player.getManifest()) player.unload();
-
-    // If the source is a regular video file, load it and quit.
-    if ( !dashManifest && !hlsManifest ) return;
-
+  async sourcesChanged({dashManifest, hlsManifest, player, playing}) {
     const support = await shaka.Player.probeSupport();
-    const manifestToLoad = support.manifest.mpd ? dashManifest : hlsManifest;
-    // Load the dashManifest.
-    this.loadManifest(manifestToLoad, player);
+    const manifest = support.manifest.mpd ? dashManifest : hlsManifest;
+    this.loadManifest(manifest).catch(error => this.onPlayerLoadError(error));
+    if (playing) this.requestTimeFrame();
   }
 
   requestTimeFrame() {
@@ -285,16 +269,15 @@ class ShakaPlayer extends LitElement {
    * @param  {Object}  player
    * @return {Promise}
    */
-  loadManifest(manifestUrl, player = this.player) {
+  async loadManifest(manifestUrl, player = this.player) {
     if (!player) throw new Error('Could not load player');
-    return player.load(manifestUrl)
-      .then(loaded => {
-        this.dispatchEvent(customEvent('manifest-loaded', loaded));
-        return loaded;
-      })
-      .catch(error => {
-        this.onPlayerLoadError(error, this.src);
-      });
+
+    // If the player is already initialized, unload it's sources.
+    if (player.getManifest()) player.unload();
+
+    const detail = await player.load(manifestUrl);
+    this.dispatchEvent(new CustomEvent('manifest-loaded', {bubbles, composed, detail}));
+    return detail;
   }
 
   /**
@@ -374,7 +357,7 @@ class ShakaPlayer extends LitElement {
     this.setPlaying();
   }
 
-  onPlayerLoadError(error, src) {
+  onPlayerLoadError(error, src = this.src) {
     this.dispatchEvent(errorEvent('error', error));
     // eslint-disable-next-line no-unused-vars
     const {code, category, data, severity} = error;
