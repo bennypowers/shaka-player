@@ -1,0 +1,412 @@
+<link rel="import" href="../polymer/polymer-element.html">
+<link rel="import" href="../lazy-imports/lazy-imports-mixin.html">
+
+<dom-module id="shaka-player">
+  <link rel="lazy-import" href="./shaka-player-script.html" group="shaka">
+  <template>
+    <style>
+      :host {
+        display: block;
+        position: relative;
+      }
+
+      video {
+        background-color: var(--shaka-player-background-color, black);
+        display: block;
+        height: 100%;
+        object-fit: cover;
+        position: relative;
+        min-width: 100%;
+      }
+
+    </style>
+
+    <video id="video"
+        autoplay="[[autoplay]]"
+        controls="[[controls]]"
+        current-time="{{currentTime::timeupdate}}"
+        ended="{{ended::ended}}"
+        muted="{{muted::volumechange}}"
+        on-canplaythrough="onCanplaythrough"
+        on-durationchange="onDurationchange"
+        on-error="onError"
+        on-fullscreenchange="onFullscreenchange"
+        on-mozfullscreenchange="onFullscreenchange"
+        on-webkitfullscreenchange="onFullscreenchange"
+        on-loadedmetadata="onLoadedmetadata"
+        on-loadstart="onLoadstart"
+        on-pause="onPause"
+        on-play="onPlay"
+        on-progress="onProgress"
+        on-readystatechange="onReadyStateChange"
+        on-seeking="onLoadstart"
+        poster="[[poster]]"
+        preload="[[preload]]"
+        volume="{{volume::volumechange}}"
+    ></video>
+
+  </template>
+
+  <script>(function ShakaPlayerIIFE() {
+    'use strict';
+
+    const bubbles = true;
+    const composed = true;
+
+    const mapProp = f => prop => obj => (
+      obj[prop] ? obj[prop] = f(obj[prop]) : null,
+      obj
+    );
+
+    const toString = a => a.toString();
+
+    const escapeProp = mapProp(escape);
+
+    const newUrl = x => new URL(x);
+
+    const escapeUrls = urls => urls
+      .map(newUrl)
+      .map(escapeProp('pathname'))
+      .map(toString);
+
+    const customEvent = (type, detail) =>
+      new CustomEvent(type, {bubbles, composed, detail});
+
+    const errorEvent = error =>
+      new ErrorEvent('error', {bubbles, composed, error});
+
+    /**
+     * `shaka-player`
+     * Custom element wrapper for google&#39;s Shaka Player
+     *
+     * ### Styling
+     *
+     * The following custom properties and mixins are available for styling:
+     *
+     * Custom property | Description | Default
+     * ----------------|-------------|----------
+     * `--elastic-player-background-color` | The background color of the video element | `black`
+     *
+     * @customElement
+     * @polymer
+     * @extends Polymer.Element
+     * @appliesMixin Polymer.LazyImportsMixin
+     * @demo demo/index.html
+     */
+    class ShakaPlayer extends Polymer.LazyImportsMixin(Polymer.Element) {
+      static get is() {return 'shaka-player';}
+      static get properties() {
+        return {
+
+          /** If shaka player should use cookies for CORS requests. */
+          allowCrossSiteCredentials: {
+            type: Boolean,
+            value: false,
+          },
+
+          /** If autoplay is enabled. */
+          autoplay: {
+            type: Boolean,
+            reflectToAttribute: true,
+            notify: true,
+            value: false,
+          },
+
+          /** If video controls are shown. */
+          controls: {
+            type: Boolean,
+            value: false,
+          },
+
+          /** The current position of the playhead, in seconds. */
+          currentTime: {
+            type: Number,
+            value: 0,
+            notify: true,
+          },
+
+          /** URL to dash manifest. */
+          dashManifest: {
+            type: String,
+          },
+
+          /** URL to hls manifest. */
+          hlsManifest: {
+            type: String,
+          },
+
+          /** The duration of the video in milliseconds. */
+          duration: {
+            type: Number,
+            readOnly: true,
+            notify: true,
+          },
+
+          /** Whether or not the video playback has ended */
+          ended: {
+            type: Boolean,
+            value: false,
+          },
+
+          /** Whether or not the video is loading */
+          loading: {
+            type: Boolean,
+            readOnly: true,
+            value: true,
+            notify: true,
+          },
+
+          /** Whether or not the video is muted. */
+          muted: {
+            type: Boolean,
+            notify: true,
+          },
+
+          /** If the video is paused. */
+          paused: {
+            type: Boolean,
+            readOnly: true,
+            notify: true,
+            value: true,
+          },
+
+          /** Handle on shaka player object. */
+          player: {
+            type: Object,
+            value: null,
+          },
+
+          /** Whether or not the player is playing */
+          playing: {
+            type: Boolean,
+            value: false,
+            computed: 'computePlaying(currentTime, paused, ended)',
+            notify: true,
+          },
+
+          /** The src URL for the poster frame. */
+          poster: {
+            type: String,
+            value: '',
+          },
+
+          /** Video element preload value. */
+          preload: {
+            type: String,
+            value: 'metadata',
+          },
+
+          /**
+           * Ready state of the video element.
+           * see https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/readyState
+           */
+          readyState: {
+            type: Number,
+            readOnly: true,
+          },
+
+          /** The volume level of the video. */
+          volume: {
+            type: Number,
+            value: 1,
+            notify: true,
+          },
+
+        };
+      }
+
+      static get observers() {
+        return [
+          'videoSourcesChanged(src, dashManifest, hlsManifest)',
+        ];
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this.onFullscreenchange();
+        document.addEventListener('fullscreenchange', this.onFullscreenchange.bind(this));
+      }
+
+      /**
+       * Sets currentTime from video on each frame.
+       * @param  {DOMHighResTimeStamp} timestamp
+       */
+      currentTimeFrameCallback(timestamp) {
+        this.currentTime = this.$.video.currentTime;
+        if (!this.playing) return;
+        requestAnimationFrame(
+          timestamp => this.currentTimeFrameCallback(timestamp)
+        );
+      }
+
+      /** Creates a Player instance and attaches it to the element. */
+      initPlayer() {
+        const {MANIFEST} = shaka.net.NetworkingEngine.RequestType;
+
+        const escapeManifestUrlsFilter = (type, request) =>
+          request.uris = type === MANIFEST
+            ? escapeUrls(request.uris)
+            : request.uris;
+
+        const enableCookiesRequestFilter = (type, request) =>
+          request.allowCrossSiteCredentials = this.allowCrossSiteCredentials;
+
+        const player = new shaka.Player(this.$.video);
+
+        const engine = player.getNetworkingEngine();
+              engine.registerRequestFilter(enableCookiesRequestFilter);
+              engine.registerRequestFilter(escapeManifestUrlsFilter);
+
+        this.player = player;
+        this.dispatchEvent(customEvent('init-shaka-player'), player);
+      }
+
+      /**
+       * Load a manifest URL into shaka player.
+       * @param  {String}  manifestUrl
+       */
+      loadManifest(manifestUrl) {
+        if (!this.player) throw new Error('Could not load player');
+        this.player
+          .load(manifestUrl)
+          .then(detail => this.dispatchEvent(customEvent('shaka-player-loaded', detail)))
+          .catch(error => this.onPlayerLoadError(error, this.video));
+      }
+
+      /**
+       * Load a regular video URL.
+       * @param  {String} url
+       * @return {any}
+       */
+      loadVideo(url) {
+        if (!url) return this._setLoading(false);
+        this.$.video.src = url;
+      }
+
+      /** Pause the player. */
+      pause() {
+        return this.$.video.pause();
+      }
+
+      /** Play the player. */
+      play() {
+        return this.$.video.play();
+      }
+
+      playingChanged(playing) {
+        requestAnimationFrame(
+          timestamp => this.currentTimeFrameCallback(timestamp)
+        );
+      }
+
+      async videoSourcesChanged(src, dashManifest, hlsManifest) {
+        const noManifests = (!dashManifest && !hlsManifest);
+        if (!src && noManifests) return;
+        this.$.video.pause();
+        this.$.video.src = '';
+
+        // If the player is already initialized, unload it's sources.
+        if (this.player) this.player.unload();
+
+        // If the source is a regular video file, load it and quit.
+        if (noManifests) return this.loadVideo(src);
+
+        // Import shaka player library.
+        try {
+          await this.importLazyGroup('shaka');
+          if (!shaka) throw new Error('Could not load shaka player library');
+        } catch (error) {
+          return this.dispatchEvent(errorEvent(error));
+        }
+
+
+        // Install built-in polyfills to patch browser incompatibilities.
+        shaka.polyfill.installAll();
+
+        // Check to see if the browser supports the basic APIs Shaka needs.
+        if (!shaka.Player.isBrowserSupported()) {
+          return src
+            ? this.loadVideo(src)
+            : this.dispatchEvent(errorEvent(new Error('Could not load video sources')));
+        }
+
+        // Initialize shaka player library.
+        this.initPlayer();
+
+        const support = await shaka.Player.probeSupport();
+
+        const manifestToLoad = support.manifest.mpd ? dashManifest : hlsManifest;
+
+        // Load the dashManifest.
+        this.loadManifest(manifestToLoad);
+      }
+
+      computePlaying(currentTime, paused, ended) {
+        return currentTime > 0 && !paused && !ended;
+      }
+
+      /** EVENT LISTENERS */
+
+      onCanplaythrough(event) {
+        this._setLoading(false);
+      }
+
+      onDurationchange(event) {
+        this._setDuration(this.$.video.duration);
+      }
+
+      onError(event) {
+        this._setLoading(false);
+      }
+
+      onFullscreenchange(event) {
+        this.fullscreen = !!(
+          document.fullscreen ||
+          document.fullscreenElement
+        );
+      }
+
+      onLoadedmetadata(event) {
+        this.onDurationchange(event);
+      }
+
+      onLoadstart(event) {
+        this._setLoading(true);
+      }
+
+      onPause(event) {
+        this._setPaused(this.$.video.paused);
+      }
+
+      onPlay(event) {
+        this._setPaused(this.$.video.paused);
+      }
+
+      onPlayerLoadError(error, video) {
+        this.dispatchEvent(errorEvent('error', error));
+        // eslint-disable-next-line no-unused-vars
+        const {code, category, data, severity} = error;
+        const networkError = code === 1002; // HTTP_ERROR
+        const videoError = code === 3016; // VIDEO_ERROR
+        const manifestError = (code >= 4000 && code < 5000);
+        const errorIsFinal = networkError || manifestError || videoError;
+        return errorIsFinal ? this.loadVideo(video.url) : undefined;
+      }
+
+      onProgress(event) {
+        const {lengthComputable, loaded, total} = event;
+        this.dispatchEvent(new CustomEvent(
+          'shaka-player-progress',
+          {bubbles, composed, lengthComputable, loaded, total}
+        ));
+      }
+
+      onReadyStateChange(event) {
+        this._setReadyState(this.$.video.readyState);
+      }
+    }
+
+    window.customElements.define(ShakaPlayer.is, ShakaPlayer);
+  }());
+  </script>
+</dom-module>
