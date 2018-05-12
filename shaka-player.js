@@ -265,7 +265,7 @@ class ShakaPlayer extends LitElement {
    * @param  {DOMHighResTimeStamp} timestamp
    */
   currentTimeFrameCallback(timestamp) {
-    this.currentTime = this.video.currentTime;
+    this.dispatchEvent(customEvent('current-time-changed', this.currentTime));
     if (!this.playing) return;
     this.requestTimeFrame();
   }
@@ -407,11 +407,6 @@ class ShakaPlayer extends LitElement {
   onReadyStateChange(event) {
     const video = this.video || {};
     this.readyState = video.readyState;
-  }
-
-  onTimeupdate(event) {
-    this.currentTime = event.target.currentTime;
-    this.setPlaying();
   }
 }
 
