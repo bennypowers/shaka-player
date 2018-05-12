@@ -192,7 +192,8 @@ class ShakaPlayer extends LitElement {
     // Install built-in polyfills to patch browser incompatibilities.
     shaka.polyfill.installAll();
     // Initialize player
-    this.initPlayer();
+    const doInit = () => this.initPlayer();
+    this.video ? doInit() : requestIdleCallback(doInit);
   }
 
   _shouldRender(props, changedProps, prevProps) {
@@ -221,7 +222,10 @@ class ShakaPlayer extends LitElement {
     return this.shadowRoot.querySelector(selector);
   }
 
-  /** Creates a Player instance and attaches it to the element. */
+  /**
+   * Creates a Player instance and attaches it to the element.
+   * @return {any}
+   */
   initPlayer() {
     if (!this.video) throw new Error('Trying to initialize a player without a video element.');
 
