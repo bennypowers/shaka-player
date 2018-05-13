@@ -56,10 +56,10 @@ class ShakaPlayer extends LitElement {
       video {
         background-color: var(--shaka-player-background-color, black);
         display: block;
-        height: 100%;
-        min-width: 100%;
-        object-fit: cover;
+        height: var(--shaka-player-video-height, auto);
+        object-fit: var(--shaka-player-object-fit, initial);
         position: relative;
+        width: var(--shaka-player-video-width, 100%);
       }
 
     </style>
