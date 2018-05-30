@@ -191,31 +191,35 @@ class ShakaPlayer extends LitElement {
     document.addEventListener('fullscreenchange', this.onFullscreenchange.bind(this));
     // Install built-in polyfills to patch browser incompatibilities.
     shaka.polyfill.installAll();
-    // Initialize player
-    const doInit = () => this.initPlayer();
-    this.video ? doInit() : requestIdleCallback(doInit);
   }
 
-  _shouldRender(props, changedProps, prevProps) {
-    const {player, playing} = this;
-    const {dashManifest, hlsManifest, src} = changedProps;
-    const {dashManifest: prevDash, hlsManifest: prevHls, src: prevSrc} =
-      prevProps;
+  _propertiesChanged(props, changedProps, prevProps) {
+    super._propertiesChanged(props, changedProps, prevProps);
+    const {player, playing, video} = this;
+    if (!player || !video) return;
+    const {dashManifest, hlsManifest, src} = props;
 
     const hasSources = !!(dashManifest || hlsManifest || src);
-    const dashChanged = dashManifest !== prevDash;
-    const hlsChanged = hlsManifest !== prevHls;
-    const srcChanged = src !== prevSrc;
+
+    const dashChanged = changedProps.dashManifest;
+    const hlsChanged = changedProps.hlsManifest;
+    const srcChanged = changedProps.src;
 
     // If the source is a regular video file, load it and quit.
     if (srcChanged && !dashChanged && !hlsChanged) return this.loadVideo(src);
 
-    const hasNewSources = !!( dashChanged || hlsChanged );
+    const hasNewSources =
+      !!changedProps.dashManifest ||
+      !!changedProps.hlsManifest;
 
-    hasNewSources && this.video &&
+    hasNewSources &&
     this.sourcesChanged({dashManifest, hlsManifest, player, playing});
 
     return (hasSources && hasNewSources);
+  }
+
+  _firstRendered() {
+    this.initPlayer();
   }
 
   $(selector) {
@@ -285,6 +289,7 @@ class ShakaPlayer extends LitElement {
    */
   async loadManifest(manifestUrl, player = this.player) {
     if (!player) throw new Error('Could not load player');
+    if (!manifestUrl) return;
     const manifestLoaded = loaded => this.manifestLoaded(loaded);
     const handleError = error => this.onPlayerLoadError(error);
 

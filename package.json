@@ -21,7 +21,7 @@
   },
   "homepage": "https://github.com/bennypowers/shaka-player#readme",
   "dependencies": {
-    "@polymer/lit-element": "^0.5.0",
+    "@polymer/lit-element": "^0.5.1",
     "shaka-player": "^2.3.7"
   }
 }
