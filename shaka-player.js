@@ -260,7 +260,7 @@ class ShakaPlayer extends LitElement {
   }
 
   requestTimeFrame() {
-    requestAnimationFrame(
+    return requestAnimationFrame(
       timestamp => this.currentTimeFrameCallback(timestamp)
     );
   }
@@ -270,9 +270,9 @@ class ShakaPlayer extends LitElement {
    * @param  {DOMHighResTimeStamp} timestamp
    */
   currentTimeFrameCallback(timestamp) {
-    this.dispatchEvent(customEvent('current-time-changed', this.currentTime));
-    if (!this.playing) return;
-    this.requestTimeFrame();
+    this.dispatchEvent(customEvent('current-time-changed', {value: this.currentTime}));
+    const {ended, paused} = this.video;
+    !paused && !ended && this.requestTimeFrame();
   }
 
   async sourcesChanged({dashManifest, hlsManifest, player, playing}) {
@@ -347,6 +347,7 @@ class ShakaPlayer extends LitElement {
     this.paused = paused;
     this.ended = ended;
     this.playing = computePlaying({currentTime, ended, paused});
+    this.requestTimeFrame();
   }
 
   /** EVENT LISTENERS */
