@@ -45,7 +45,7 @@ const computePlaying = ({currentTime, paused, ended}) =>
  * @demo demo/index.html
  */
 class ShakaPlayer extends LitElement {
-  _render({autoplay, controls, poster, preload}) {
+  _render({autoplay, controls, muted, poster, preload}) {
     return html`
     <style>
       :host {
@@ -67,6 +67,7 @@ class ShakaPlayer extends LitElement {
     <video id="video"
         autoplay?="${ autoplay }"
         controls?="${ controls }"
+        muted="${ muted }"
         on-canplaythrough="${ event => this.onCanplaythrough(event) }"
         on-durationchange="${ event => this.onDurationchange(event) }"
         on-ended="${ event => this.onEnded(event) }"
