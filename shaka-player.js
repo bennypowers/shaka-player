@@ -26,9 +26,6 @@ const customEvent = (type, detail) =>
 const errorEvent = error =>
   new ErrorEvent('error', {bubbles, composed, error});
 
-const computePlaying = ({currentTime, paused, ended}) =>
-  currentTime > 0 && !paused && !ended;
-
 /**
  * `shaka-player`
  * Custom element wrapper for google&#39;s Shaka Player
@@ -229,7 +226,20 @@ class ShakaPlayer extends LitElement {
   }
 
   $(selector) {
+    if (!this.shadowRoot || typeof this.shadowRoot.querySelector !== 'function') return;
     return this.shadowRoot.querySelector(selector);
+  }
+
+  updateProperties() {
+    const {currentTime, ended, paused} = this.video || {};
+    this.paused = paused;
+    this.ended = ended;
+    this.playing =
+      this.loading !== true &&
+      currentTime > 0 &&
+      !paused &&
+      !ended;
+    this.requestTimeFrame();
   }
 
   /**
@@ -266,18 +276,13 @@ class ShakaPlayer extends LitElement {
 
   requestTimeFrame() {
     return requestAnimationFrame(
-      timestamp => this.currentTimeFrameCallback(timestamp)
+      timestamp => {
+        const {currentTime: value, ended, paused} = this.video;
+        this.dispatchEvent(customEvent('current-time-changed', {value}));
+        if (paused || ended) return;
+        this.requestTimeFrame();
+      }
     );
-  }
-
-  /**
-   * Sets currentTime from video on each frame.
-   * @param  {DOMHighResTimeStamp} timestamp
-   */
-  currentTimeFrameCallback(timestamp) {
-    this.dispatchEvent(customEvent('current-time-changed', {value: this.currentTime}));
-    const {ended, paused} = this.video;
-    !paused && !ended && this.requestTimeFrame();
   }
 
   async sourcesChanged({dashManifest, hlsManifest, player, playing}) {
@@ -285,6 +290,7 @@ class ShakaPlayer extends LitElement {
       ? this.loadManifest(dashManifest)
       : this.loadVideo(hlsManifest);
     this.requestTimeFrame();
+    this.updateProperties();
   }
 
   /**
@@ -347,18 +353,11 @@ class ShakaPlayer extends LitElement {
     return video ? video.play() : Promise.reject('No Player');
   }
 
-  setPlaying() {
-    const {currentTime, ended, paused} = this.video || {};
-    this.paused = paused;
-    this.ended = ended;
-    this.playing = computePlaying({currentTime, ended, paused});
-    this.requestTimeFrame();
-  }
-
   /** EVENT LISTENERS */
 
   onCanplaythrough(event) {
     this.loading = false;
+    this.updateProperties();
   }
 
   onDurationchange(event) {
@@ -368,10 +367,11 @@ class ShakaPlayer extends LitElement {
 
   onError(event) {
     this.loading = false;
+    this.updateProperties();
   }
 
   onEnded(event) {
-    this.setPlaying();
+    this.updateProperties();
   }
 
   onFullscreenchange(event) {
@@ -387,14 +387,15 @@ class ShakaPlayer extends LitElement {
 
   onLoadstart(event) {
     this.loading = true;
+    this.updateProperties();
   }
 
   onPause(event) {
-    this.setPlaying();
+    this.updateProperties();
   }
 
   onPlay(event) {
-    this.setPlaying();
+    this.updateProperties();
   }
 
   onPlayerLoadError(error, src = this.src) {
