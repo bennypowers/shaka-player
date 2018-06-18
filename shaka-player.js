@@ -196,6 +196,11 @@ class ShakaPlayer extends LitElement {
 
   _propertiesChanged(props, changedProps, prevProps) {
     super._propertiesChanged(props, changedProps, prevProps);
+
+    if ('playing' in changedProps) {
+      this.dispatchEvent(customEvent('playing-changed', {value: changedProps.playing}));
+    }
+
     const {player, playing, video} = this;
     if (!player || !video) return;
     const {dashManifest, hlsManifest, src} = props;
@@ -255,7 +260,7 @@ class ShakaPlayer extends LitElement {
           engine.registerRequestFilter(escapeManifestUrlsFilter);
 
     this.player = player;
-    this.dispatchEvent(customEvent('init-shaka-player'), player);
+    this.dispatchEvent(customEvent('init-shaka-player', player));
     this.sourcesChanged(this);
   }
 
