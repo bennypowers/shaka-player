@@ -27,7 +27,7 @@ const errorEvent = error =>
   new ErrorEvent('error', {bubbles, composed, error});
 
 /**
- * `shaka-player`
+ * `<shaka-player\>`
  * Custom element wrapper for google&#39;s Shaka Player
  *
  * ### Styling
@@ -36,12 +36,20 @@ const errorEvent = error =>
  *
  * Custom property | Description | Default
  * ----------------|-------------|----------
- * `--elastic-player-background-color` | The background color of the video element | `black`
+ * `--shaka-player-background-color` | The background color of the video element | `black`
+ * `--shaka-player-video-height` | height property of the video element | `auto`
+ * `--shaka-player-video-width` | width property of the video element | `100%`
+ * `--shaka-player-object-fit` | object-fit property of the video element | `initial`
  *
  * @customElement
  * @demo demo/index.html
  */
 class ShakaPlayer extends LitElement {
+  /**
+   * Renders the template
+   * @return {TemplateResult}
+   * @protected
+   */
   _render({autoplay, controls, muted, poster, preload}) {
     return html`
     <style>
@@ -89,7 +97,7 @@ class ShakaPlayer extends LitElement {
   }
 
   get video() {
-    return this.$('video');
+    return this.$('video') || {};
   }
 
   get currentTime() {
@@ -168,6 +176,7 @@ class ShakaPlayer extends LitElement {
     };
   }
 
+  /** @protected */
   constructor() {
     super();
     this.allowCrossSiteCredentials = false;
@@ -183,6 +192,7 @@ class ShakaPlayer extends LitElement {
     this.volume = 1;
   }
 
+  /** @protected */
   connectedCallback() {
     super.connectedCallback();
     this.onFullscreenchange();
@@ -191,45 +201,67 @@ class ShakaPlayer extends LitElement {
     shaka.polyfill.installAll();
   }
 
-  _propertiesChanged(props, changedProps, prevProps) {
-    super._propertiesChanged(props, changedProps, prevProps);
+  /**
+   * Dispatches playing-changed event, watches for changed sources
+   * @param  {Object} props
+   * @param  {Object} changed
+   * @param  {Object} old
+   * @return {any}
+   */
+  _didRender(props, changed, old) {
+    const {player, playing, video} = this;
 
-    if ('playing' in changedProps) {
-      this.dispatchEvent(customEvent('playing-changed', {value: changedProps.playing}));
+    if ('playing' in changed) {
+      this.dispatchEvent(customEvent('playing-changed', {value: changed.playing}));
     }
 
-    const {player, playing, video} = this;
     if (!player || !video) return;
+
     const {dashManifest, hlsManifest, src} = props;
 
     const hasSources = !!(dashManifest || hlsManifest || src);
 
-    const dashChanged = changedProps.dashManifest;
-    const hlsChanged = changedProps.hlsManifest;
-    const srcChanged = changedProps.src;
+    const dashChanged = changed.dashManifest;
+    const hlsChanged = changed.hlsManifest;
+    const srcChanged = changed.src;
 
     // If the source is a regular video file, load it and quit.
     if (srcChanged && !dashChanged && !hlsChanged) return this.loadVideo(src);
 
     const hasNewSources =
-      !!changedProps.dashManifest ||
-      !!changedProps.hlsManifest;
+      !!changed.dashManifest ||
+      !!changed.hlsManifest;
 
-    hasNewSources &&
-    this.sourcesChanged({dashManifest, hlsManifest, player, playing});
+    if (hasNewSources) {
+      this.sourcesChanged({dashManifest, hlsManifest, player, playing});
+    }
 
     return (hasSources && hasNewSources);
   }
 
+  /** @protected */
   _firstRendered() {
     this.initPlayer();
   }
 
+  /**
+   * Exposes this.shadowRoot.querySelector as `$`
+   *
+   * @protected
+   * @param  {string} selector
+   * @return {Node}
+   */
   $(selector) {
-    if (!this.shadowRoot || typeof this.shadowRoot.querySelector !== 'function') return;
-    return this.shadowRoot.querySelector(selector);
+    return (this.shadowRoot && typeof this.shadowRoot.querySelector === 'function')
+      ? this.shadowRoot.querySelector(selector)
+      : undefined;
   }
 
+  /**
+   * Updates the paused, ended, and playing properties, and requests further updates.
+   *
+   * @protected
+   */
   updateProperties() {
     const {currentTime, ended, paused} = this.video || {};
     this.paused = paused;
@@ -244,6 +276,8 @@ class ShakaPlayer extends LitElement {
 
   /**
    * Creates a Player instance and attaches it to the element.
+   *
+   * @protected
    * @return {any}
    */
   initPlayer() {
@@ -274,6 +308,11 @@ class ShakaPlayer extends LitElement {
     this.sourcesChanged(this);
   }
 
+  /**
+   * Updates currentTime on animation frame.
+   * @return {any}
+   * @protected
+   */
   requestTimeFrame() {
     return requestAnimationFrame(
       timestamp => {
@@ -285,6 +324,7 @@ class ShakaPlayer extends LitElement {
     );
   }
 
+  /** @protected */
   async sourcesChanged({dashManifest, hlsManifest, player, playing}) {
     shaka.Player.isBrowserSupported()
       ? this.loadManifest(dashManifest)
@@ -315,6 +355,7 @@ class ShakaPlayer extends LitElement {
    * @param  {String}  manifestUri
    * @param  {number}  [startTime] Optional start time, in seconds, to begin playback. Defaults to 0 for VOD and to the live edge for live. Set a positive number to start with a certain offset the beginning. Set a negative number to start with a certain offset from the end. This is intended for use with live streams, to start at a fixed offset from the live edge.
    * @param  {shakaExtern.ManifestParser.Factory} [manifestParserFactory] Optional manifest parser factory to override auto-detection or use an unregistered parser.
+   * @param  {Object}  [player=this.player] handle on shaka player instance
    * @return {Promise}  Resolved when the manifest has been loaded and playback has begun; rejected when an error occurs or the call was interrupted by destroy(), unload() or another call to load().
    */
   async load(
@@ -379,25 +420,50 @@ class ShakaPlayer extends LitElement {
 
   /** EVENT LISTENERS */
 
+  /**
+   * Updates properties when video can play through.
+   * @param  {Event} event canplaythrough event
+   * @protected
+   */
   onCanplaythrough(event) {
     this.loading = false;
     this.updateProperties();
   }
 
+  /**
+   * Sets the duration property when duration changes.
+   * @param  {Event} event durationchange event.
+   * @protected
+   */
   onDurationchange(event) {
     const video = this.video || {duration: 0};
     this.duration = video.duration;
   }
 
+  /**
+   * Sets loading property when a playback error occurs.
+   * @param  {Event} event error event
+   * @protected
+   */
   onError(event) {
     this.loading = false;
     this.updateProperties();
   }
 
+  /**
+   * Updates Properties when playback ends.
+   * @param  {Event} event ended event
+   * @protected
+   */
   onEnded(event) {
     this.updateProperties();
   }
 
+  /**
+   * Updates fullscreen property when fullscreen changes.
+   * @param  {Event} event fullscreenchange event
+   * @protected
+   */
   onFullscreenchange(event) {
     this.fullscreen = !!(
       document.fullscreen ||
@@ -405,23 +471,50 @@ class ShakaPlayer extends LitElement {
     );
   }
 
+  /**
+   * Updates properties when metadata is loaded.
+   * @param  {Event} event loadedmetadata event
+   * @protected
+   */
   onLoadedmetadata(event) {
     this.onDurationchange(event);
   }
 
+  /**
+   * Updates properties when loading starts
+   * @param  {Event} event loadstart event
+   * @protected
+   */
   onLoadstart(event) {
     this.loading = true;
     this.updateProperties();
   }
 
+  /**
+   * Updates properties on pause.
+   * @param  {Event} event pause event
+   * @protected
+   */
   onPause(event) {
     this.updateProperties();
   }
 
+  /**
+   * Updates properties on play.
+   * @param  {Event} event play event
+   * @protected
+   */
   onPlay(event) {
     this.updateProperties();
   }
 
+  /**
+   * Handles load errors.
+   * @param  {Error} error
+   * @param  {String} [src=this.src] video uri
+   * @return {String|Promise}
+   * @protected
+   */
   onPlayerLoadError(error, src = this.src) {
     this.dispatchEvent(errorEvent('error', error));
     // eslint-disable-next-line no-unused-vars
@@ -433,6 +526,11 @@ class ShakaPlayer extends LitElement {
     return errorIsFinal ? src && this.loadVideo(src) : undefined;
   }
 
+  /**
+   * Dispatches a custom event on progress
+   * @param  {Event} event progress event
+   * @protected
+   */
   onProgress(event) {
     const {lengthComputable, loaded, total} = event;
     this.dispatchEvent(new CustomEvent(
@@ -441,6 +539,11 @@ class ShakaPlayer extends LitElement {
     ));
   }
 
+  /**
+   * Updates properties on readystatechange.
+   * @param  {Event} event readystatechange event
+   * @protected
+   */
   onReadyStateChange(event) {
     const video = this.video || {};
     this.readyState = video.readyState;
