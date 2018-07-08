@@ -295,33 +295,57 @@ class ShakaPlayer extends LitElement {
 
   /**
    * Load a manifest URL into shaka player.
-   * @param  {String}  manifestUrl
-   * @param  {Object}  player
-   * @return {Promise}
+   * @param  {String}  manifestUri
+   * @param  {Object}  [player=this.player] handle on shaka player instance
+   * @return {Promise}  Resolved when the manifest has been loaded and playback has begun; rejected when an error occurs or the call was interrupted by destroy(), unload() or another call to load().
    */
-  async loadManifest(manifestUrl, player = this.player) {
+  async loadManifest(manifestUri, player = this.player) {
     if (!player) throw new Error('Could not load player');
-    if (!manifestUrl) return;
-    const manifestLoaded = loaded => this.manifestLoaded(loaded);
-    const handleError = error => this.onPlayerLoadError(error);
-
-    // If the player is already initialized, unload it's sources.
-    if (player.getManifest()) player.unload();
-
+    if (!manifestUri) return;
+    // If another load was in progress, wait for it to complete.
     await this.loadManifestPromise || Promise.resolve();
-
-    const loadManifestPromise = player.load(manifestUrl);
-
-    this.loadManifestPromise = loadManifestPromise;
-
-    loadManifestPromise
-      .then(manifestLoaded)
-      .catch(handleError);
-
-    return loadManifestPromise;
+    // If the player is already initialized, unload it's sources.
+    if (player.getManifest()) await player.unload();
+    return this.load(manifestUri);
   }
 
-  manifestLoaded(loaded) {
+  /**
+   * Load a Manifest.
+   *
+   * @param  {String}  manifestUri
+   * @param  {number}  [startTime] Optional start time, in seconds, to begin playback. Defaults to 0 for VOD and to the live edge for live. Set a positive number to start with a certain offset the beginning. Set a negative number to start with a certain offset from the end. This is intended for use with live streams, to start at a fixed offset from the live edge.
+   * @param  {shakaExtern.ManifestParser.Factory} [manifestParserFactory] Optional manifest parser factory to override auto-detection or use an unregistered parser.
+   * @return {Promise}  Resolved when the manifest has been loaded and playback has begun; rejected when an error occurs or the call was interrupted by destroy(), unload() or another call to load().
+   */
+  async load(
+    manifestUri,
+    startTime,
+    manifestParserFactory,
+    player=this.player
+  ) {
+    this.loadManifestPromise = player.load(manifestUri)
+      .then(this.onManifestLoaded.bind(this))
+      .catch(this.onPlayerLoadError.bind(this));
+    return this.loadManifestPromise;
+  }
+
+  /**
+   * Unload the current manifest and make the Player available for re-use.
+   * @param  {boolean} [reinitializeMediaSource=true]  If true, start reinitializing MediaSource right away. This can improve load() latency for MediaSource-based playbacks. Defaults to true.
+   * @return {Promise}                                 If reinitializeMediaSource is false, the Promise is resolved as soon as streaming has stopped and the previous content, if any, has been unloaded. If reinitializeMediaSource is true or undefined, the Promise resolves after MediaSource has been subsequently reinitialized.
+   */
+  unload(reinitializeMediaSource=true) {
+    return this.player.unload(reinitializeMediaSource);
+  }
+
+  /**
+   * Dispatches 'manifest-loaded' event.
+   *
+   * @protected
+   * @fires 'manifest-loaded'
+   * @param  {any} loaded
+   */
+  onManifestLoaded(loaded) {
     this.dispatchEvent(customEvent('manifest-loaded', loaded));
   }
 
