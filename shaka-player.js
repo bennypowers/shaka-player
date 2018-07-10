@@ -475,7 +475,7 @@ class ShakaPlayer extends LitElement {
    */
   onError(event) {
     this.loading = false;
-    this.dispatchEvent(event);
+    this.dispatchEvent(new ErrorEvent(event.type, event));
     this.dispatchEvent(customEvent('playing-changed', {value: this.playing}));
   }
 
