@@ -378,7 +378,8 @@ class ShakaPlayer extends LitElement {
     if (!player) throw new Error('Could not load player');
     if (!manifestUri) return;
     // If another load was in progress, wait for it to complete.
-    await this.loadManifestPromise || Promise.resolve();
+    await this.loadManifestPromise;
+    await this.playPromise;
     // If the player is already initialized, unload it's sources.
     if (player.getManifest()) await player.unload();
     return this.load(manifestUri);
@@ -410,8 +411,10 @@ class ShakaPlayer extends LitElement {
    * @param  {boolean} [reinitializeMediaSource=true]  If true, start reinitializing MediaSource right away. This can improve load() latency for MediaSource-based playbacks. Defaults to true.
    * @return {Promise}                                 If reinitializeMediaSource is false, the Promise is resolved as soon as streaming has stopped and the previous content, if any, has been unloaded. If reinitializeMediaSource is true or undefined, the Promise resolves after MediaSource has been subsequently reinitialized.
    */
-  unload(reinitializeMediaSource=true) {
-    return this.player.unload(reinitializeMediaSource);
+  async unload(reinitializeMediaSource=true) {
+    await this.loadManifestPromise;
+    await this.playPromise;
+    return this.player && this.player.unload(reinitializeMediaSource);
   }
 
   /**
@@ -430,7 +433,9 @@ class ShakaPlayer extends LitElement {
    * @param  {String} url
    * @return {any}
    */
-  loadVideo(url) {
+  async loadVideo(url) {
+    await this.playPromise;
+    await this.loadManifestPromise;
     if (!url) return this.loading = false;
     this.video.src = url;
   }
@@ -439,18 +444,26 @@ class ShakaPlayer extends LitElement {
    * Pauses the player.
    * @return {any}
    */
-  pause() {
-    const video = this.video;
-    return video && video.pause();
+  async pause() {
+    const {video} = this;
+    return video && video.play().then(video.pause.bind(video));
   }
 
   /**
-   * Plays the player
+   * Plays the player.
+   *
    * @return {Promise}
    */
-  play() {
-    const video = this.video;
-    return video ? video.play() : Promise.reject('No Player');
+  async play() {
+    const {video} = this;
+    this.playPromise =
+        !video ? Promise.reject('No Player')
+      : this.canPlay ? video.play()
+      // There may be times when a user tries to call play() when there are no sources available.
+      // In that case, `playPromise` must be undefined, in case the user needs to await it.
+      // However, we'd still like to pass as much of the behavior through to the video element.
+      : video.play() && undefined;
+    return this.playPromise;
   }
 
   /** EVENT LISTENERS */
