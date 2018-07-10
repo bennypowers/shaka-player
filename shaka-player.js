@@ -108,6 +108,17 @@ class ShakaPlayer extends LitElement {
   }
 
   /**
+   * Whether the video can play.
+   * @type {Boolean}
+   */
+  get canPlay() {
+    return !!(
+      this.video &&
+      this.video.readyState > 0
+    );
+  }
+
+  /**
    * The currentTime of the video in seconds.
    * @type {Number}
    */
