@@ -329,8 +329,8 @@ class ShakaPlayer extends LitElement {
     if (!this.video) throw new Error('Trying to initialize a player without a video element.');
 
     // Check to see if the browser supports the basic APIs Shaka needs.
-    const supported = shaka.Player.isBrowserSupported();
-    if (!supported) return this.loadVideo(this.hlsManifest || this.src);
+    this.isBrowserSupported = shaka.Player.isBrowserSupported();
+    if (!this.isBrowserSupported) return;
 
     const {MANIFEST} = shaka.net.NetworkingEngine.RequestType;
 
