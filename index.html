@@ -1,16 +1,19 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
   <head>
     <meta charset="utf-8">
-    <meta http-equiv="refresh" content="0;url=demo/" />
-    <title>shaka-player</title>
+    <title>&lt;shaka-player&gt; Demo</title>
+    <script src="https://unpkg.com/shaka-player"></script>
+    <script src="https://unpkg.com/api-viewer-element?module" type="module"></script>
+    <script type="module">
+      import './shaka-player.js';
+    </script>
   </head>
   <body>
-    <!--
-        ELEMENT API DOCUMENTATION SUPPORT COMING SOON
-        Visit demo/index.html to see live examples of your element running.
-        This page will automatically redirect you there when run in the browser
-        with `polymer serve`.
-      -->
+    <api-viewer src="./custom-elements.json">
+      <template data-element="shaka-player" data-target="host">
+        <shaka-player allow-cross-site-credentials controls dash-manifest="http://amssamples.streaming.mediaservices.windows.net/683f7e47-bd83-4427-b0a3-26a6c4547782/BigBuckBunny.ism/manifest(format=mpd-time-csf)"></shaka-player>
+      </template>
+    </api-viewer>
   </body>
 </html>

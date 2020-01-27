@@ -1,6 +1,6 @@
 {
   "name": "@power-elements/shaka-player",
-  "version": "0.5.1",
+  "version": "1.0.0",
   "description": "A web component to wrap Google's shaka-player",
   "main": "shaka-player.js",
   "flat": true,
@@ -8,7 +8,9 @@
     "test": "test"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "es-dev-server --app-index index.html --node-resolve --dedupe --watch --open",
+    "test": "karma start --coverage",
+    "analyze": "wca --outFile custom-elements.json"
   },
   "repository": {
     "type": "git",
@@ -21,7 +23,24 @@
   },
   "homepage": "https://github.com/bennypowers/shaka-player#readme",
   "dependencies": {
-    "@polymer/lit-element": "^0.5.2",
+    "@lavadrop/kebab-case": "^3.0.0",
+    "@pacote/memoize": "^1.1.1",
+    "lit-element": "^2.0.0",
     "shaka-player": "^2.4.2"
+  },
+  "devDependencies": {
+    "@apollo-elements/eslint-config": "^1.1.1",
+    "@open-wc/lit-helpers": "^0.2.6",
+    "@open-wc/testing": "^2.5.1",
+    "@open-wc/testing-karma": "^3.2.31",
+    "es-dev-server": "^1.36.3",
+    "eslint": "^6.8.0",
+    "eslint-config-google": "^0.14.0",
+    "eslint-plugin-html": "^6.0.0",
+    "eslint-plugin-json": "^2.0.1",
+    "eslint-plugin-no-loops": "^0.3.0",
+    "eslint-plugin-no-only-tests": "^2.4.0",
+    "sinon": "^8.1.1",
+    "web-component-analyzer": "^1.0.2"
   }
 }

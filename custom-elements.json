@@ -1,0 +1,216 @@
+{
+  "version": "experimental",
+  "tags": [
+    {
+      "name": "shaka-player",
+      "description": "Custom element wrapper for google&#39;s Shaka Player",
+      "attributes": [
+        {
+          "name": "allow-cross-site-credentials",
+          "description": "Whether shaka player should use cookies for CORS requests.",
+          "type": "boolean"
+        },
+        {
+          "name": "controls",
+          "description": "Whether to display controls over the video.",
+          "type": "boolean"
+        },
+        {
+          "name": "dash-manifest",
+          "description": "URL to the MPEG-DASH manifest",
+          "type": "string"
+        },
+        {
+          "name": "hls-manifest",
+          "description": "URL to the HLS manifest",
+          "type": "string"
+        },
+        {
+          "name": "poster",
+          "description": "The src URL for the poster frame.",
+          "type": "string"
+        },
+        {
+          "name": "currentTime",
+          "description": "Video's current time",
+          "type": "number"
+        },
+        {
+          "name": "playing",
+          "description": "Whether the video is playing.",
+          "type": "boolean"
+        },
+        {
+          "name": "autoplay",
+          "description": "Whether the video should auto-play.",
+          "type": "boolean",
+          "default": "false"
+        },
+        {
+          "name": "loading",
+          "description": "Whether the video is loading",
+          "type": "boolean",
+          "default": "false"
+        },
+        {
+          "name": "muted",
+          "description": "Whether the video is muted.",
+          "type": "boolean",
+          "default": "false"
+        },
+        {
+          "name": "preload",
+          "description": "Video element preload value.",
+          "type": "'none'|'metadata'|'auto'|''",
+          "default": "\"metadata\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "allowCrossSiteCredentials",
+          "attribute": "allow-cross-site-credentials",
+          "description": "Whether shaka player should use cookies for CORS requests.",
+          "type": "boolean"
+        },
+        {
+          "name": "controls",
+          "attribute": "controls",
+          "description": "Whether to display controls over the video.",
+          "type": "boolean"
+        },
+        {
+          "name": "dashManifest",
+          "attribute": "dash-manifest",
+          "description": "URL to the MPEG-DASH manifest",
+          "type": "string"
+        },
+        {
+          "name": "hlsManifest",
+          "attribute": "hls-manifest",
+          "description": "URL to the HLS manifest",
+          "type": "string"
+        },
+        {
+          "name": "poster",
+          "attribute": "poster",
+          "description": "The src URL for the poster frame.",
+          "type": "string"
+        },
+        {
+          "name": "canPlay",
+          "description": "Whether the video can play.",
+          "type": "boolean"
+        },
+        {
+          "name": "currentTime",
+          "attribute": "currentTime",
+          "description": "Video's current time",
+          "type": "number"
+        },
+        {
+          "name": "duration",
+          "description": "The duration of the video in seconds.",
+          "type": "number",
+          "readonly": true
+        },
+        {
+          "name": "ended",
+          "description": "Whether or not the video playback has ended.",
+          "type": "boolean"
+        },
+        {
+          "name": "paused",
+          "description": "Whether the video is paused.",
+          "type": "boolean"
+        },
+        {
+          "name": "playing",
+          "attribute": "playing",
+          "description": "Whether the video is playing.",
+          "type": "boolean"
+        },
+        {
+          "name": "readyState",
+          "description": "Ready state of the video element.",
+          "type": "number"
+        },
+        {
+          "name": "src",
+          "description": "The src URL for the video file.",
+          "type": "string"
+        },
+        {
+          "name": "video",
+          "description": "The underlying video element.",
+          "type": "HTMLVideoElement"
+        },
+        {
+          "name": "autoplay",
+          "attribute": "autoplay",
+          "description": "Whether the video should auto-play.",
+          "type": "boolean",
+          "default": "false"
+        },
+        {
+          "name": "loading",
+          "attribute": "loading",
+          "description": "Whether the video is loading",
+          "type": "boolean",
+          "default": "false"
+        },
+        {
+          "name": "muted",
+          "attribute": "muted",
+          "description": "Whether the video is muted.",
+          "type": "boolean",
+          "default": "false"
+        },
+        {
+          "name": "preload",
+          "attribute": "preload",
+          "description": "Video element preload value.",
+          "type": "'none'|'metadata'|'auto'|''",
+          "default": "\"metadata\""
+        },
+        {
+          "name": "volume",
+          "description": "The volume level of the video.",
+          "type": "number",
+          "default": "1"
+        }
+      ],
+      "events": [
+        {
+          "name": "init-shaka-player",
+          "description": "fired when shaka player is initialized"
+        },
+        {
+          "name": "manifest-loaded",
+          "description": "fired when shaka player loads the manifest file"
+        },
+        {
+          "name": "error",
+          "description": "fired when shaka player errors"
+        }
+      ],
+      "cssProperties": [
+        {
+          "name": "--shaka-player-background-color",
+          "description": "The background color of the video element. Default: `black`"
+        },
+        {
+          "name": "--shaka-player-video-height",
+          "description": "height property of the video element. Default: `auto`"
+        },
+        {
+          "name": "--shaka-player-video-width",
+          "description": "width property of the video element. Default: `100%`"
+        },
+        {
+          "name": "--shaka-player-object-fit",
+          "description": "object-fit property of the video element. Default: `initial`"
+        }
+      ]
+    }
+  ]
+}
