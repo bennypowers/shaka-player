@@ -38,6 +38,15 @@ const errorEvent = error =>
 /**
  * Custom element wrapper for google&#39;s Shaka Player
  *
+ * ## Usage
+ * ```html
+ * <shaka-player
+ *   autoplay
+ *   controls
+ *   dash-manifest="http://rdmedia.bbc.co.uk/dash/ondemand/bbb/2/client_manifest-common_init.mpd"
+ * ></shaka-player>
+ * ```
+ *
  * @element shaka-player
  *
  * @cssprop [--shaka-player-background-color] - The background color of the video element. Default: `black`
@@ -312,7 +321,7 @@ class ShakaPlayer extends LitElement {
   /**
    * Creates a Player instance and attaches it to the element.
    *
-   * @protected
+   * @private
    */
   initPlayer() {
     if (!this.video) throw new Error('Trying to initialize a player without a video element.');
@@ -344,7 +353,7 @@ class ShakaPlayer extends LitElement {
   /**
    * Updates currentTime on animation frame.
    * @return {any}
-   * @protected
+   * @private
    */
   requestTimeFrame() {
     return requestAnimationFrame(
@@ -375,14 +384,14 @@ class ShakaPlayer extends LitElement {
    *
    * @param  {string}  manifestUri
    * @param  {number}  [startTime] Optional start time, in seconds, to begin playback. Defaults to 0 for VOD and to the live edge for live. Set a positive number to start with a certain offset the beginning. Set a negative number to start with a certain offset from the end. This is intended for use with live streams, to start at a fixed offset from the live edge.
-   * @param  {shakaExtern.ManifestParser.Factory} [manifestParserFactory] Optional manifest parser factory to override auto-detection or use an unregistered parser.
-   * @return {Promise}  Resolved when the manifest has been loaded and playback has begun; rejected when an error occurs or the call was interrupted by destroy(), unload() or another call to load().
+   * @param  {string}  [manifestMimeType] Optional mimetype registered using `shaka.media.ManifestParser.register(mimeType, ParserClass)`
+   * @return {Promise} Resolved when the manifest has been loaded and playback has begun; rejected when an error occurs or the call was interrupted by destroy(), unload() or another call to load().
    */
-  async load(manifestUri, startTime, manifestParserFactory ) {
+  async load(manifestUri, startTime, manifestMimeType) {
     const { player } = this;
     await this.loadPromise;
     await this.playPromise;
-    this.loadPromise = player.load(manifestUri, startTime, manifestParserFactory)
+    this.loadPromise = player.load(manifestUri, startTime, manifestMimeType)
       .then(this.onManifestLoaded)
       .catch(this.onPlayerLoadError);
     return this.loadPromise;
@@ -440,6 +449,10 @@ class ShakaPlayer extends LitElement {
 
   /** EVENT LISTENERS */
 
+  /**
+   * @private
+   * @param  {Event} event
+   */
   onCanplaythrough(event) {
     this.loading = false;
   }
@@ -450,6 +463,7 @@ class ShakaPlayer extends LitElement {
    * @protected
    * @fires 'manifest-loaded'
    * @param  {any} loaded
+   * @private
    */
   onManifestLoaded(loaded) {
     this.dispatchEvent(customEvent('manifest-loaded', {}));
@@ -458,7 +472,7 @@ class ShakaPlayer extends LitElement {
   /**
    * Sets loading property when a playback error occurs.
    * @param  {Event} event error event
-   * @protected
+   * @private
    */
   onError(event) {
     this.loading = false;
@@ -469,7 +483,7 @@ class ShakaPlayer extends LitElement {
   /**
    * Updates Properties when playback ends.
    * @param  {Event} event ended event
-   * @protected
+   * @private
    */
   onEnded(event) {
     this.requestUpdate('playing', true);
@@ -478,7 +492,7 @@ class ShakaPlayer extends LitElement {
   /**
    * Updates fullscreen property when fullscreen changes.
    * @param  {Event} event fullscreenchange event
-   * @protected
+   * @private
    */
   onFullscreenchange(event) {
     this.fullscreen = !!(
@@ -490,7 +504,7 @@ class ShakaPlayer extends LitElement {
   /**
    * Updates properties when loading starts
    * @param  {Event} event loadstart event
-   * @protected
+   * @private
    */
   onLoadstart(event) {
     this.loading = true;
@@ -499,7 +513,7 @@ class ShakaPlayer extends LitElement {
   /**
    * Updates properties on pause.
    * @param  {Event} event pause event
-   * @protected
+   * @private
    */
   onPause(event) {
     this.requestUpdate('playing', true);
@@ -508,7 +522,7 @@ class ShakaPlayer extends LitElement {
   /**
    * Updates properties on play.
    * @param  {Event} event play event
-   * @protected
+   * @private
    */
   onPlay(event) {
     this.requestUpdate('playing', false);
@@ -518,7 +532,7 @@ class ShakaPlayer extends LitElement {
    * Handles load errors.
    * @param  {Error} error
    * @param  {string} [src=this.src] video uri
-   * @protected
+   * @private
    */
   onPlayerLoadError(error, src = this.src) {
     this.dispatchEvent(errorEvent('error', error));
@@ -531,6 +545,10 @@ class ShakaPlayer extends LitElement {
     if (errorIsFinal) this.loadVideo(src);
   }
 
+  /**
+   * @param  {Event} target
+   * @private
+   */
   onVolumechange({ target: { muted, volume } }) {
     this.muted = muted;
     this.volume = volume;
