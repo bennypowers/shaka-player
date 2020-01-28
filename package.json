@@ -10,6 +10,7 @@
   "scripts": {
     "start": "es-dev-server --app-index index.html --node-resolve --dedupe --watch --open",
     "test": "karma start --coverage",
+    "test:watch": "karma start --coverage --auto-watch=true --single-run=false",
     "analyze": "wca --outFile custom-elements.json"
   },
   "repository": {

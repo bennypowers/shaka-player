@@ -11,6 +11,16 @@ module.exports = config => {
     esm: {
       nodeResolve: true,
     },
+    customLaunchers: {
+      ChromeHeadlessNoSandbox: {
+        base: 'ChromeHeadless',
+        flags: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--autoplay-policy=no-user-gesture-required',
+        ],
+      },
+    },
   }));
   return config;
 };

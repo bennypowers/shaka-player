@@ -260,9 +260,9 @@ starting after this time should be assumed to be unavailable.
   }
   namespace util {
     class Error {
-      severity: any;
-      category: any;
-      code: any;
+      severity: Error.Severity;
+      category: Error.Category;
+      code: Error.Code;
       data: any;
       handled: any;
       /**

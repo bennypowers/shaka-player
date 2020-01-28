@@ -1,17 +1,11 @@
-import './shaka-player';
+/* istanbul ignore file */
 import 'shaka-player';
+import './shaka-player';
 
-import { spy } from 'sinon';
-import { expect, fixture, html, oneEvent } from '@open-wc/testing';
+import { expect, fixture, html, oneEvent, nextFrame } from '@open-wc/testing';
 
+/** @type {import('./shaka-player').ShakaPlayer} */
 let element;
-function assertProps(props) {
-  return async function() {
-    await element.updateComplete;
-    Object.entries(props).forEach(([name, value]) => expect(element[name]).to.equal(value));
-  };
-}
-
 async function setup() {
   element = await fixture(html`<shaka-player></shaka-player>`);
 }
@@ -37,9 +31,20 @@ function listenFor(eventType) {
   };
 }
 
-function assertFired(eventType) {
+async function waitUntilPlayable() {
+  return new Promise(resolve => {
+    function goAhead() {
+      if (element.canPlay) resolve();
+      else requestAnimationFrame(goAhead);
+    }
+    requestAnimationFrame(goAhead);
+  });
+}
+
+function assertEventFired(eventType) {
   return async function() {
-    expect(await events.get(eventType), eventType).to.be.an.instanceof(Event);
+    const event = await events.get(eventType);
+    expect(event, eventType).to.be.an.instanceof(Event);
   };
 }
 
@@ -49,7 +54,35 @@ export function awaitEvent(eventType) {
   };
 }
 
+export function assertEventDetail(eventType, expected) {
+  return async function() {
+    const { detail } = await events.get(eventType);
+    expect(detail, `${eventType} detail`).to.deep.equal(expected);
+  };
+}
+
+function assertProps(props) {
+  return async function() {
+    await element.updateComplete;
+    Object.entries(props).forEach(([name, value]) => expect(element[name]).to.equal(value));
+  };
+}
+
+async function pause() {
+  return element.pause();
+}
+
+async function play() {
+  return element.play();
+}
+
+async function unload() {
+  return element.unload(false);
+}
+
 describe('<shaka-player>', function() {
+  afterEach(pause);
+  afterEach(unload);
   afterEach(teardown);
   describe('by default', function() {
     beforeEach(setup);
@@ -70,17 +103,45 @@ describe('<shaka-player>', function() {
     });
   });
 
-  describe('when setting dashManifest', function() {
+  describe('with `dashManifest` property set', function() {
     beforeEach(setup);
     beforeEach(listenFor('manifest-loaded'));
-    beforeEach(setProps({ dashManifest: 'http://amssamples.streaming.mediaservices.windows.net/683f7e47-bd83-4427-b0a3-26a6c4547782/BigBuckBunny.ism/manifest(format=mpd-time-csf)' }));
-    it('loads the manifest', assertFired('manifest-loaded'));
-    it('loads the manifest', assertProps({ loading: false }));
+    listenFor('canplaythrough');
+    beforeEach(setProps({ dashManifest: 'http://livesim.dashif.org/livesim/utc_direct-head/testpic_2s/Manifest.mpd' }));
+    it('fires `manifest-loaded` event', assertEventFired('manifest-loaded'));
+    it('unsets the `loading` property', assertProps({ loading: false }));
+    describe('when setting `currentTime` property', function() {
+      beforeEach(setProps({ currentTime: 200 }));
+      it('sets the video\'s currentTime', assertProps({ currentTime: 200 }));
+    });
+    describe('when playing', function() {
+      beforeEach(awaitEvent('manifest-loaded'));
+      beforeEach(waitUntilPlayable);
+      beforeEach(listenFor('current-time-changed'));
+      beforeEach(play);
+      it('fires `current-time-changed` event', assertEventFired('current-time-changed', { value: 0 }));
+      it('sets the `playing` property', assertProps({ playing: true }));
+      it('unsets the `paused` property', assertProps({ paused: false }));
+      describe('then pausing', function() {
+        beforeEach(pause);
+        beforeEach(nextFrame);
+        it('unsets the `playing` property', assertProps({ playing: false }));
+        it('sets the `paused` property', assertProps({ paused: true }));
+      });
+    });
     describe('then resetting dashManifest', function() {
       beforeEach(listenFor('manifest-loaded'));
-      beforeEach(setProps({ dashManifest: 'http://rdmedia.bbc.co.uk/dash/ondemand/bbb/2/client_manifest-common_init.mpd' }));
+      beforeEach(setProps({ dashManifest: 'http://livesim.dashif.org/livesim/segtimeline_1/testpic_2s/Manifest.mpd' }));
       beforeEach(awaitEvent('manifest-loaded'));
-      it('loads the manifest', assertFired('manifest-loaded'));
+      it('fires `manifest-loaded` event', assertEventFired('manifest-loaded'));
     });
+  });
+
+  describe('when setting invalid dashManifest', function() {
+    beforeEach(setup);
+    beforeEach(listenFor('error'));
+    beforeEach(setProps({ dashManifest: 'lolhaha' }));
+    it('fires the `error` event', assertEventFired('error'));
+    it('unsets the `loading` property', assertProps({ loading: false }));
   });
 });
